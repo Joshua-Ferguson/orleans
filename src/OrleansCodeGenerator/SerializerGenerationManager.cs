@@ -116,6 +116,7 @@ namespace Orleans.CodeGenerator
                         ErrorCode.CodeGenSystemTypeRequiresSerializer,
                         "System type " + def.Name + " requires a serializer.");
                 else
+                    if (TypeUtils.HasAllSerializationMethods(def)) return false;
                     TypesToProcess.Add(def);
 
                 return false;
