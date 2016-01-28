@@ -197,7 +197,7 @@ namespace Orleans.CodeGenerator.Utilities
         public static MethodDeclarationSyntax GetDeclarationSyntax(this MethodInfo method)
         {
             var syntax =
-                SyntaxFactory.MethodDeclaration(method.ReturnType.GetTypeSyntax(), method.Name.ToIdentifier())
+                SyntaxFactory.MethodDeclaration(method.ReturnType.GetTypeSyntax(), method.GetNameSyntax().ToFullString())
                     .WithParameterList(SyntaxFactory.ParameterList().AddParameters(method.GetParameterListSyntax()));
             if (method.IsPublic)
             {
