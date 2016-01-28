@@ -279,10 +279,36 @@ namespace Orleans.CodeGenerator
 
             // The invoke method expects a Task<object>, so we need to upcast the returned value.
             // For methods which do not return a value, the Box extension method returns a meaningless value.
-            return new StatementSyntax[]
+            if (method.IsGenericMethod)
             {
-                SF.ReturnStatement(SF.InvocationExpression(grainMethodCall.Member((Task _) => _.Box())))
-            };
+                var sb = new System.Text.StringBuilder().Append(method.Name).Append("<");                
+                for (int i = 0; i < method.GetGenericArguments().Length; i++)
+                {
+                    sb.Append("dynamic,");
+                }
+                sb.Length--;
+                sb.Append(">");
+
+                // Invoke the method, dynamically
+                var grainDynamicMethodCall =
+                    SF.InvocationExpression(castGrain.Member(sb.ToString()))
+                        .AddArgumentListArguments(parameters.Select(SF.Argument).ToArray());
+
+                return new StatementSyntax[]
+                {
+                    SF.ReturnStatement(SF.InvocationExpression(
+                            SF.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SF.IdentifierName("PublicOrleansTaskExtentions"), SF.IdentifierName("Box"))                            
+                        ).AddArgumentListArguments(SF.Argument(grainDynamicMethodCall))
+                    )
+                };
+            }
+            else
+            {
+                return new StatementSyntax[]
+                {
+                    SF.ReturnStatement(SF.InvocationExpression(grainMethodCall.Member((Task _) => _.Box())))
+                };
+            }
         }
     }
 }
