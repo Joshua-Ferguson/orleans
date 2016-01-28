@@ -51,6 +51,62 @@ namespace Orleans.CodeGenerator.Utilities
         }
         
         /// <summary>
+        /// Returns <see cref="TypeSyntax"/> for the provided <paramref name="type"/>.
+        /// </summary>
+        /// <param name="type">
+        /// The type.
+        /// </param>
+        /// <param name="includeNamespace">
+        /// A value indicating whether or not to include the namespace name.
+        /// </param>
+        /// <param name="includeGenericParameters">
+        /// Whether or not to include the names of generic parameters in the result.
+        /// </param>
+        /// <returns>
+        /// <see cref="TypeSyntax"/> for the provided <paramref name="type"/>.
+        /// </returns>
+        public static TypeSyntax GetTypeSyntaxAsDynamic(
+            this Type type,
+            bool includeNamespace = true,
+            bool includeGenericParameters = true)
+        {
+            if (type == typeof(void))
+            {
+                return SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));
+            }
+
+            var code = type.GetParseableName(
+                        new TypeFormattingOptions(
+                            includeNamespace: includeNamespace,
+                            includeGenericParameters: includeGenericParameters));
+
+            var typeInfo = type.GetTypeInfo();
+            
+            if (typeInfo.IsGenericParameter) 
+            {
+                code = "dynamic";
+            }
+            else if (typeInfo.IsGenericType)
+            {
+                var getGenericParameters = new Regex("(?<=<)[A-Za-z0-9,: \\.]+(?=>)");
+                var genericParameters = getGenericParameters.Match(code);
+
+                var generics = genericParameters.Value.Split(',');
+                var sb = new System.Text.StringBuilder();
+                foreach (var generic in generics)
+                {
+                    if (generic.Contains("::")) sb.Append(generic).Append(",");
+                    else sb.Append("dynamic,");
+                }
+                sb.Length--;
+
+                code = getGenericParameters.Replace(code, sb.ToString());
+            }
+
+            return SyntaxFactory.ParseTypeName(code);
+        }
+        
+        /// <summary>
         /// Returns <see cref="NameSyntax"/> specified <paramref name="type"/>.
         /// </summary>
         /// <param name="type">
