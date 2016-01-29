@@ -65,7 +65,7 @@ namespace Orleans.CodeGenerator.Utilities
         /// <returns>
         /// <see cref="TypeSyntax"/> for the provided <paramref name="type"/>.
         /// </returns>
-        public static TypeSyntax GetTypeSyntaxAsDynamic(
+        public static TypeSyntax GetTypeSyntaxUsingDynamicGenerics(
             this Type type,
             bool includeNamespace = true,
             bool includeGenericParameters = true)
