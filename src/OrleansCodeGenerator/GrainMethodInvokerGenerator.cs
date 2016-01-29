@@ -255,7 +255,7 @@ namespace Orleans.CodeGenerator
             for (var i = 0; i < methodParameters.Count; i++)
             {
                 var parameter = methodParameters[i];
-                var parameterType = parameter.ParameterType.GetTypeSyntaxAsDynamic();
+                var parameterType = parameter.ParameterType.GetTypeSyntaxUsingDynamicGenerics();
                 var indexArg = SF.Argument(SF.LiteralExpression(SyntaxKind.NumericLiteralExpression, SF.Literal(i)));
                 var arg = SF.CastExpression(
                     parameterType,
