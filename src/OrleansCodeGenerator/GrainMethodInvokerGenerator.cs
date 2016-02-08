@@ -247,7 +247,7 @@ namespace Orleans.CodeGenerator
             MethodInfo method,
             IdentifierNameSyntax arguments)
         {
-            bool invokeResolvableOnlyDuringRuntime = method.GetParameters().Where(p => !p.ParameterType.IsGenericParameter && p.ParameterType.IsConstructedGenericType).Count() > 0;
+            bool invokeResolvableOnlyDuringRuntime = method.GetParameters().Where(p => !p.ParameterType.IsGenericParameter && p.ParameterType.ContainsGenericParameters).Count() > 0;
             if (invokeResolvableOnlyDuringRuntime) return GenerateRuntimeInvokeForMethod(grainType, grain, method, arguments);
 
             var castGrain = SF.ParenthesizedExpression(SF.CastExpression(grainType.GetTypeSyntax(), grain));
