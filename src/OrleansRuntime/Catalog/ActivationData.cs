@@ -103,7 +103,7 @@ namespace Orleans.Runtime
             /// <param name="methodId"></param>
             /// <param name="arguments"></param>
             /// <returns></returns>
-            public Task<object> Invoke(IAddressable grain, int interfaceId, int methodId, object[] arguments)
+            public Task<object> Invoke(IAddressable grain, int interfaceId, int methodId, object[] arguments, Type[] genericTypeArguments)
             {
                 if (extensionMap == null || !extensionMap.ContainsKey(interfaceId))
                     throw new InvalidOperationException(
@@ -111,7 +111,7 @@ namespace Orleans.Runtime
 
                 var invoker = extensionMap[interfaceId].Item2;
                 var extension = extensionMap[interfaceId].Item1;
-                return invoker.Invoke(extension, interfaceId, methodId, arguments);
+                return invoker.Invoke(extension, interfaceId, methodId, arguments, genericTypeArguments);
             }
 
             public bool IsExtensionInstalled(int interfaceId)
