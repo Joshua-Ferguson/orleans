@@ -448,7 +448,8 @@ namespace Orleans
                             targetOb,
                             request.InterfaceId,
                             request.MethodId,
-                            request.Arguments);
+                            request.Arguments,
+                            request.GenericTypeParameters);
                         if (resultPromise != null) // it will be null for one way messages
                         {
                             resultObject = await resultPromise;

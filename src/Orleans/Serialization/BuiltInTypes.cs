@@ -1453,15 +1453,30 @@ namespace Orleans.Serialization
         {
             var request = (InvokeMethodRequest)obj;
 
+            int argumentsCount = (request?.Arguments?.Length ?? 0);
+
             stream.Write(request.InterfaceId);
             stream.Write(request.MethodId);
-            stream.Write(request.Arguments != null ? request.Arguments.Length : 0);
+            stream.Write(argumentsCount);
             if (request.Arguments != null)
             {
                 foreach (var arg in request.Arguments)
                 {
                     SerializationManager.SerializeInner(arg, stream, null);
                 }
+            }
+
+            if (request.GenericTypeParameters != null && request.GenericTypeParameters.Length != 0) // #JF
+            {
+                stream.Write(request.GenericTypeParameters.Length);
+                foreach (var genericTypeParameter in request.GenericTypeParameters)
+                {
+                    SerializationManager.SerializeInner(genericTypeParameter, stream, null);
+                }
+            }
+            else
+            {
+                stream.Write(0);
             }
         }
 
@@ -1482,6 +1497,18 @@ namespace Orleans.Serialization
                 }
             }
 
+            int genericTypeParameterCount = stream.ReadInt();
+            if (genericTypeParameterCount > 0)
+            {
+                var genericTypeParameters = new Type[genericTypeParameterCount];
+                for (var i = 0; i < genericTypeParameterCount; i++)
+                {
+                    genericTypeParameters[i] = SerializationManager.DeserializeInner(null, stream) as Type;
+                }
+
+                return new InvokeMethodRequest(iid, mid, args, genericTypeParameters);
+            }
+
             return new InvokeMethodRequest(iid, mid, args);
         }
 
@@ -1499,7 +1526,17 @@ namespace Orleans.Serialization
                 }
             }
 
-            var result = new InvokeMethodRequest(request.InterfaceId, request.MethodId, args);
+            Type[] genericTypeParameters = null;
+            if (request.GenericTypeParameters != null)
+            {
+                genericTypeParameters = new Type[request.GenericTypeParameters.Length];
+                for (var i = 0; i < request.GenericTypeParameters.Length; i++)
+                {
+                    genericTypeParameters[i] = SerializationManager.DeepCopyInner(request.GenericTypeParameters[i]) as Type;
+                }
+            }
+
+            var result = new InvokeMethodRequest(request.InterfaceId, request.MethodId, args, genericTypeParameters);
             SerializationContext.Current.RecordObject(original, result);
             return result;
         }

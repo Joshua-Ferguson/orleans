@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Text;
@@ -295,7 +296,7 @@ namespace Orleans.Runtime
         /// <summary>
         /// Called from generated code.
         /// </summary>
-        protected async Task<T> InvokeMethodAsync<T>(int methodId, object[] arguments, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
+        protected async Task<T> InvokeMethodAsync<T>(int methodId, object[] arguments, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null, Type[] genericTypeParameters = null)
         {
             object[] argsDeepCopy = null;
             if (arguments != null)
@@ -304,7 +305,7 @@ namespace Orleans.Runtime
                 argsDeepCopy = (object[])SerializationManager.DeepCopy(arguments);
             }
             
-            var request = new InvokeMethodRequest(this.InterfaceId, methodId, argsDeepCopy);
+            var request = new InvokeMethodRequest(this.InterfaceId, methodId, argsDeepCopy, genericTypeParameters);
 
             if (IsUnordered)
                 options |= InvokeMethodOptions.Unordered;
@@ -317,12 +318,60 @@ namespace Orleans.Runtime
             }
 
             resultTask = OrleansTaskExtentions.ConvertTaskViaTcs(resultTask);
-            return (T) await resultTask;
+            return (T)await resultTask;
+        }
+
+        /// <summary>
+        /// Called from generated code.
+        /// For generics! Todo: combine with the other if possible?, Must handle the oneway invokeMethod
+        /// </summary>
+        protected async Task<T> InvokeMethodAsync<T>(int methodId, object[] arguments, Type[] genericTypeParameters, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
+        {
+            var result = await InvokeMethodAsync<object>(methodId, arguments, options, silo, genericTypeParameters);
+
+            var tType = typeof(T);
+            var rType = result.GetType();
+
+            // Just because an invoke supports a generic call, doesn't mean it was used with a generic object
+            // And, any generic that is wrapped in another container is safe, we do not need to modify it.
+            if (tType.IsGenericType && rType.GenericTypeArguments.Where(g => g == typeof(object)).Count() > 0)
+            {
+                return (T)CastGeneric(result, genericTypeParameters);
+            }
+            else
+            {
+                return (T)result;
+            }
         }
 
         #endregion
 
         #region Private members
+        private static object CastGeneric(object input, Type[] genericTypeParameters)
+        {
+            try
+            {
+                var inputType = input.GetType();
+                var cleanType = inputType.GetGenericTypeDefinition();
+                var outputType = cleanType.MakeGenericType(genericTypeParameters);
+                object output = Activator.CreateInstance(outputType);
+
+                var inFields = inputType.GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                var outFields = outputType.GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+
+                for (int i = 0; i < inFields.Length; i++)
+                {
+                    var value = inFields[i].GetValue(input);
+                    outFields[i].SetValue(output, value);
+                }
+
+                return output;
+            }
+            catch (Exception exception)
+            {
+                throw new Exception($"CastGeneric: inputType = {input.GetType()} :: gtpLength = {genericTypeParameters.Length} :: gtp's = {genericTypeParameters.Select(q => q.ToString()).Aggregate((x, y) => (x + ", " + y))};", exception);
+            }
+        }
 
         private Task<object> InvokeMethod_Impl(InvokeMethodRequest request, string debugContext, InvokeMethodOptions options)
         {

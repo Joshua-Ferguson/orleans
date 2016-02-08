@@ -128,7 +128,7 @@ namespace Orleans.CodeGenerator
             var invokeMethod =
                 TypeUtils.Method(
                     (IGrainMethodInvoker x) =>
-                    x.Invoke(default(IAddressable), default(int), default(int), default(object[])));
+                    x.Invoke(default(IAddressable), default(int), default(int), default(object[]), default(Type[])));
 
             return GenerateInvokeMethod(grainType, invokeMethod);
         }
@@ -148,7 +148,7 @@ namespace Orleans.CodeGenerator
             var invokeMethod =
                 TypeUtils.Method(
                     (IGrainExtensionMethodInvoker x) =>
-                    x.Invoke(default(IGrainExtension), default(int), default(int), default(object[])));
+                    x.Invoke(default(IGrainExtension), default(int), default(int), default(object[]), default(Type[])));
 
             return GenerateInvokeMethod(grainType, invokeMethod);
         }
@@ -247,6 +247,9 @@ namespace Orleans.CodeGenerator
             MethodInfo method,
             IdentifierNameSyntax arguments)
         {
+            bool invokeResolvableOnlyDuringRuntime = method.GetParameters().Where(p => !p.ParameterType.IsGenericParameter && p.ParameterType.ContainsGenericParameters).Count() > 0;
+            if (invokeResolvableOnlyDuringRuntime) return GenerateRuntimeInvokeForMethod(grainType, grain, method, arguments);
+
             var castGrain = SF.ParenthesizedExpression(SF.CastExpression(grainType.GetTypeSyntax(), grain));
 
             // Construct expressions to retrieve each of the method's parameters.
@@ -255,7 +258,7 @@ namespace Orleans.CodeGenerator
             for (var i = 0; i < methodParameters.Count; i++)
             {
                 var parameter = methodParameters[i];
-                var parameterType = parameter.ParameterType.GetTypeSyntax();
+                var parameterType = parameter.ParameterType.GetTypeSyntaxUsingDynamicGenerics();
                 var indexArg = SF.Argument(SF.LiteralExpression(SyntaxKind.NumericLiteralExpression, SF.Literal(i)));
                 var arg = SF.CastExpression(
                     parameterType,
@@ -279,9 +282,76 @@ namespace Orleans.CodeGenerator
 
             // The invoke method expects a Task<object>, so we need to upcast the returned value.
             // For methods which do not return a value, the Box extension method returns a meaningless value.
+            if (method.IsGenericMethod)
+            {
+                var typeParametersAsDynamicParameters = SF.GenericName(SF.Identifier(method.Name), SF.TypeArgumentList()
+                    .AddArguments(method.GetGenericArguments().Select(_ => SF.ParseTypeName("dynamic")).ToArray()));
+
+                // Invoke the method, dynamically
+                var grainDynamicMethodCall =
+                    SF.InvocationExpression(castGrain.Member(typeParametersAsDynamicParameters))
+                        .AddArgumentListArguments(parameters.Select(SF.Argument).ToArray());
+
+                return new StatementSyntax[]
+                {
+                    SF.ReturnStatement(SF.InvocationExpression(
+                            SF.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SF.IdentifierName("PublicOrleansTaskExtentions"), SF.IdentifierName("Box"))
+                        ).AddArgumentListArguments(SF.Argument(grainDynamicMethodCall))
+                    )
+                };
+            }
+            else
+            {
+                return new StatementSyntax[]
+                {
+                    SF.ReturnStatement(SF.InvocationExpression(grainMethodCall.Member((Task _) => _.Box())))
+                };
+            }
+        }
+
+        private static StatementSyntax[] GenerateRuntimeInvokeForMethod(
+            Type grainType,
+            IdentifierNameSyntax grain,
+            MethodInfo method,
+            IdentifierNameSyntax arguments)
+        {
+            var parameters = method.GetParameters().ToArray();
+            var methodParameterTypeOfExpressions = new List<ExpressionSyntax>();
+            for(int i = 0; i < parameters.Length; i++)
+            {
+                var type = parameters[i].ParameterType;
+
+                if (type.IsGenericParameter)
+                {
+                    var indexArg = SF.Argument(SF.LiteralExpression(SyntaxKind.NumericLiteralExpression, SF.Literal(i)));
+                    methodParameterTypeOfExpressions.Add(SF.ElementAccessExpression(arguments).AddArgumentListArguments(indexArg).Member("GetType()"));
+                }
+                else
+                {
+                    if (type.IsConstructedGenericType) type = type.GetGenericTypeDefinition();
+                    methodParameterTypeOfExpressions.Add(SF.TypeOfExpression(type.GetTypeSyntax(true, false)));
+                }
+            }
+
+            var invokeMethodAtRuntimeExpression = SF.InvocationExpression(SF.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SF.IdentifierName("OrleansGenericInvokeHelper"), SF.IdentifierName("Invoke")))
+                .AddArgumentListArguments(
+                    SF.Argument(SF.TypeOfExpression(grainType.GetTypeSyntax())),
+                    SF.Argument(grain),
+                    SF.Argument(SF.LiteralExpression(SyntaxKind.StringLiteralExpression, SF.Literal(method.Name))),
+                    SF.Argument("genericTypeArguments".ToIdentifierName()),
+                    SF.Argument(arguments),
+                    SF.Argument(
+                        SF.ArrayCreationExpression(typeof(Type).GetArrayTypeSyntax())
+                          .WithInitializer(SF.InitializerExpression(SyntaxKind.ArrayInitializerExpression)
+                          .AddExpressions(methodParameterTypeOfExpressions.ToArray())))
+                );
+
             return new StatementSyntax[]
             {
-                SF.ReturnStatement(SF.InvocationExpression(grainMethodCall.Member((Task _) => _.Box())))
+                SF.ReturnStatement(SF.InvocationExpression(
+                        SF.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SF.IdentifierName("PublicOrleansTaskExtentions"), SF.IdentifierName("Box"))
+                    ).AddArgumentListArguments(SF.Argument(invokeMethodAtRuntimeExpression))
+                )
             };
         }
     }

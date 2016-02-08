@@ -65,7 +65,10 @@ namespace Orleans.CodeGenerator
                     .Where(asm => !asm.IsDynamic && !string.IsNullOrWhiteSpace(asm.Location))
                     .Select(asm => MetadataReference.CreateFromFile(asm.Location))
                     .Cast<MetadataReference>()
-                    .ToArray();
+                    .ToList();
+                    
+            var dotnetPath = Path.GetDirectoryName(typeof(object).Assembly.Location);
+            assemblies.Add(MetadataReference.CreateFromFile(dotnetPath + "\\Microsoft.CSharp.dll"));
             var logger = TraceLogger.GetLogger("CodeGenerator");
 
             // Generate the code.
@@ -90,7 +93,7 @@ namespace Orleans.CodeGenerator
             
             var compilation =
                 CSharpCompilation.Create(assemblyName)
-                    .AddSyntaxTrees(code.SyntaxTree)
+                    .AddSyntaxTrees(CSharpSyntaxTree.ParseText(source ?? GenerateSourceCode(code)))
                     .AddReferences(assemblies)
                     .WithOptions(options);
             using (var stream = new MemoryStream())

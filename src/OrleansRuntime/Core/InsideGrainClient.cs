@@ -361,7 +361,8 @@ namespace Orleans.Runtime
 
                         throw exc;
                     }
-                    resultObject = await invoker.Invoke(target, request.InterfaceId, request.MethodId, request.Arguments);
+
+                    resultObject = await invoker.Invoke(target, request.InterfaceId, request.MethodId, request.Arguments, request.GenericTypeParameters);
                 }
                 catch (Exception exc1)
                 {

@@ -49,7 +49,47 @@ namespace Orleans.CodeGenerator.Utilities
                             includeNamespace: includeNamespace,
                             includeGenericParameters: includeGenericParameters)));
         }
-        
+
+        /// <summary>
+        /// Returns <see cref="TypeSyntax"/> for the provided <paramref name="type"/>.
+        /// </summary>
+        /// <param name="type">
+        /// The type.
+        /// </param>
+        /// <param name="includeNamespace">
+        /// A value indicating whether or not to include the namespace name.
+        /// </param>
+        /// <param name="includeGenericParameters">
+        /// Whether or not to include the names of generic parameters in the result.
+        /// </param>
+        /// <returns>
+        /// <see cref="TypeSyntax"/> for the provided <paramref name="type"/>.
+        /// </returns>
+        public static TypeSyntax GetTypeSyntaxUsingDynamicGenerics(
+            this Type type,
+            bool includeNamespace = true,
+            bool includeGenericParameters = true)
+        {
+            if (type == typeof(void))
+            {
+                return SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));
+            }
+
+            var code = type.GetParseableName(
+                        new TypeFormattingOptions(
+                            includeNamespace: includeNamespace,
+                            includeGenericParameters: includeGenericParameters));
+
+            var typeInfo = type.GetTypeInfo();
+            if (typeInfo.IsGenericParameter) code = "dynamic";
+            else if (typeInfo.IsGenericType) // Should this be the constructed type?... need more test cases
+            {
+                throw new Exception("Code Generation Error: GrainMethodInvoker for this type must use the Runtime Invoke method.");
+            }
+
+            return SyntaxFactory.ParseTypeName(code);
+        }
+
         /// <summary>
         /// Returns <see cref="NameSyntax"/> specified <paramref name="type"/>.
         /// </summary>
@@ -196,9 +236,12 @@ namespace Orleans.CodeGenerator.Utilities
         /// </returns>
         public static MethodDeclarationSyntax GetDeclarationSyntax(this MethodInfo method)
         {
+            var idName = method.GetNameSyntax().ToFullString(); // this seems to require the code to be reparsed later on... otherwise it won't recognize the generic parameters (source does not change)
+
             var syntax =
-                SyntaxFactory.MethodDeclaration(method.ReturnType.GetTypeSyntax(), method.Name.ToIdentifier())
+                SyntaxFactory.MethodDeclaration(method.ReturnType.GetTypeSyntax(), idName)
                     .WithParameterList(SyntaxFactory.ParameterList().AddParameters(method.GetParameterListSyntax()));
+
             if (method.IsPublic)
             {
                 syntax = syntax.AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));

@@ -15,12 +15,22 @@ namespace Orleans.CodeGeneration
         public int MethodId { get; private set; }
         /// <summary> Arguments for this Invoke request. </summary>
         public object[] Arguments { get; private set; }
+        /// <summary> Generic Type Parameters for this Invoke request, if required. </summary>
+        public Type[] GenericTypeParameters { get; private set; } = null;
 
         internal InvokeMethodRequest(int interfaceId, int methodId, object[] arguments)
         {
             InterfaceId = interfaceId;
             MethodId = methodId;
             Arguments = arguments;
+        }
+
+        internal InvokeMethodRequest(int interfaceId, int methodId, object[] arguments, Type[] genericTypeParameters)
+        {
+            InterfaceId = interfaceId;
+            MethodId = methodId;
+            Arguments = arguments;
+            GenericTypeParameters = genericTypeParameters;
         }
 
         /// <summary> 

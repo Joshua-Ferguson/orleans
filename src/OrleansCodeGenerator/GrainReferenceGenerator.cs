@@ -84,6 +84,7 @@ namespace Orleans.CodeGenerator
                         GenerateGetMethodNameMethod(grainType))
                     .AddMembers(GenerateInvokeMethods(grainType, onEncounteredType))
                     .AddAttributeLists(attributes);
+
             if (genericTypes.Length > 0)
             {
                 classDeclaration = classDeclaration.AddTypeParameterListParameters(genericTypes);
@@ -170,6 +171,22 @@ namespace Orleans.CodeGenerator
                                     .AddExpressions(parameters.Select(GetParameterForInvocation).ToArray()));
                 }
 
+                ExpressionSyntax genericTypeArgs = null;
+                if (method.ReturnType.IsConstructedGenericType)
+                {
+                    var genericArguments = method.GetGenericArguments();
+
+                    if (genericArguments.Length > 0)
+                    {
+                        genericTypeArgs =
+                            SF.ArrayCreationExpression(typeof(Type).GetArrayTypeSyntax())
+                                .WithInitializer(
+                                    SF.InitializerExpression(SyntaxKind.ArrayInitializerExpression)
+                                        .AddExpressions(genericArguments.Select(q => SF.TypeOfExpression(q.Name.ToIdentifierName())).ToArray()));
+                    }
+
+                }
+
                 var options = GetInvokeOptions(method);
 
                 // Construct the invocation call.
@@ -178,6 +195,11 @@ namespace Orleans.CodeGenerator
                     var invocation = SF.InvocationExpression(baseReference.Member("InvokeOneWayMethod"))
                         .AddArgumentListArguments(methodIdArgument)
                         .AddArgumentListArguments(SF.Argument(args));
+
+                    if (genericTypeArgs != null)
+                    {
+                        invocation = invocation.AddArgumentListArguments(SF.Argument(genericTypeArgs));
+                    }
 
                     if (options != null)
                     {
@@ -196,6 +218,11 @@ namespace Orleans.CodeGenerator
                             .AddArgumentListArguments(methodIdArgument)
                             .AddArgumentListArguments(SF.Argument(args));
 
+                    if (genericTypeArgs != null)
+                    {
+                        invocation = invocation.AddArgumentListArguments(SF.Argument(genericTypeArgs));
+                    }
+
                     if (options != null)
                     {
                         invocation = invocation.AddArgumentListArguments(options);
@@ -204,7 +231,8 @@ namespace Orleans.CodeGenerator
                     body.Add(SF.ReturnStatement(invocation));
                 }
 
-                members.Add(method.GetDeclarationSyntax().AddBodyStatements(body.ToArray()));
+                var member = method.GetDeclarationSyntax().AddBodyStatements(body.ToArray());
+                members.Add(member);
             }
 
             return members.ToArray();

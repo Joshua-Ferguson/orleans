@@ -20,8 +20,9 @@ namespace Orleans.CodeGeneration
         /// <param name="interfaceId">Interface id of the method to be called.</param>
         /// <param name="methodId">Method id of the method to be called.</param>
         /// <param name="arguments">Arguments to be passed to the method being invoked.</param>
+        /// <param name="genericTypeArguments">Generic Type Arguments used when the method being invoked needs to be resolved at runtime.</param>
         /// <returns>Value promise for the result of the method invoke.</returns>
-        Task<object> Invoke(IAddressable grain, int interfaceId, int methodId, object[] arguments);
+        Task<object> Invoke(IAddressable grain, int interfaceId, int methodId, object[] arguments, System.Type[] genericTypeArguments);
     }
 
     /// <summary>
@@ -36,7 +37,8 @@ namespace Orleans.CodeGeneration
         /// <param name="interfaceId">Interface id of the method to be called.</param>
         /// <param name="methodId">Method id of the method to be called.</param>
         /// <param name="arguments">Arguments to be passed to the method being invoked.</param>
+        /// <param name="genericTypeArguments">Generic Type Arguments used when the method being invoked needs to be resolved at runtime.</param>
         /// <returns>Value promise for the result of the method invoke.</returns>
-        Task<object> Invoke(IGrainExtension extension, int interfaceId, int methodId, object[] arguments);
+        Task<object> Invoke(IGrainExtension extension, int interfaceId, int methodId, object[] arguments, System.Type[] genericTypeArguments);
     }
 }
