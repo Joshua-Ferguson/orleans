@@ -67,7 +67,8 @@ namespace Orleans.CodeGenerator
                     .Cast<MetadataReference>()
                     .ToList();
                     
-            assemblies.Add(MetadataReference.CreateFromFile("Microsoft.CSharp.dll")); // was lazy and turned on 'Copy to Local' for this dll
+            var dotnetPath = Path.GetDirectoryName(typeof(object).Assembly.Location);
+            assemblies.Add(MetadataReference.CreateFromFile(dotnetPath + "\\Microsoft.CSharp.dll"));
             var logger = TraceLogger.GetLogger("CodeGenerator");
 
             // Generate the code.
