@@ -70,8 +70,6 @@ namespace Orleans.CodeGenerator.Utilities
             bool includeNamespace = true,
             bool includeGenericParameters = true)
         {
-            var logger = CodeGeneratorCommon.logger;
-
             if (type == typeof(void))
             {
                 return SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));
