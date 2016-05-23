@@ -7,6 +7,7 @@ using System.Net;
 using Orleans.Runtime;
 using Orleans.Concurrency;
 using Orleans.CodeGeneration;
+using System.Reflection;
 
 namespace Orleans.Serialization
 {
@@ -1453,14 +1454,26 @@ namespace Orleans.Serialization
         {
             var request = (InvokeMethodRequest)obj;
 
+            int argumentsCount = (request.Arguments?.Length ?? 0);
+            int typeParametersCount = (request.GenericTypeParameters?.Length ?? 0);
+
             stream.Write(request.InterfaceId);
             stream.Write(request.MethodId);
-            stream.Write(request.Arguments != null ? request.Arguments.Length : 0);
-            if (request.Arguments != null)
+            stream.Write(argumentsCount);
+            if (argumentsCount != 0)
             {
                 foreach (var arg in request.Arguments)
                 {
                     SerializationManager.SerializeInner(arg, stream, null);
+                }
+            }
+
+            stream.Write(typeParametersCount);
+            if (typeParametersCount != 0)
+            {
+                foreach (var genericTypeParameter in request.GenericTypeParameters)
+                {
+                    SerializationManager.SerializeInner(genericTypeParameter, stream, null);
                 }
             }
         }
@@ -1482,7 +1495,19 @@ namespace Orleans.Serialization
                 }
             }
 
-            return new InvokeMethodRequest(iid, mid, args);
+            int genericTypeParameterCount = stream.ReadInt();
+            TypeInfo[] genericTypeParameters = null;
+
+            if (genericTypeParameterCount > 0)
+            {
+                genericTypeParameters = new TypeInfo[genericTypeParameterCount];
+                for (var i = 0; i < genericTypeParameterCount; i++)
+                {
+                    genericTypeParameters[i] = SerializationManager.DeserializeInner(null, stream) as TypeInfo;
+                }
+            }
+
+            return new InvokeMethodRequest(iid, mid, args, genericTypeParameters);
         }
 
         internal static object CopyInvokeMethodRequest(object original)
@@ -1499,7 +1524,17 @@ namespace Orleans.Serialization
                 }
             }
 
-            var result = new InvokeMethodRequest(request.InterfaceId, request.MethodId, args);
+            TypeInfo[] genericTypeParameters = null;
+            if (request.GenericTypeParameters != null)
+            {
+                genericTypeParameters = new TypeInfo[request.GenericTypeParameters.Length];
+                for (var i = 0; i < request.GenericTypeParameters.Length; i++)
+                {
+                    genericTypeParameters[i] = SerializationManager.DeepCopyInner(request.GenericTypeParameters[i]) as TypeInfo;
+                }
+            }
+
+            var result = new InvokeMethodRequest(request.InterfaceId, request.MethodId, args, genericTypeParameters);
             SerializationContext.Current.RecordObject(original, result);
             return result;
         }

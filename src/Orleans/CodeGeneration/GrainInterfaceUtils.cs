@@ -121,28 +121,17 @@ namespace Orleans.CodeGeneration
 
             return dict;
         }
-        
+
         public static int ComputeMethodId(MethodInfo methodInfo)
         {
-            var strMethodId = new StringBuilder(methodInfo.Name + "(");
+            var strMethodId = new StringBuilder(methodInfo.Name).Append(' ');
             ParameterInfo[] parameters = methodInfo.GetParameters();
-            bool bFirstTime = true;
-            foreach (ParameterInfo info in parameters)
-            {
-                if (!bFirstTime)
-                    strMethodId.Append(",");
 
-                strMethodId.Append(info.ParameterType.Name);
-                var typeInfo = info.ParameterType.GetTypeInfo();
-                if (typeInfo.IsGenericType)
-                {
-                    Type[] args = typeInfo.GetGenericArguments();
-                    foreach (Type arg in args)
-                        strMethodId.Append(arg.Name);
-                }
-                bFirstTime = false;
-            }
-            strMethodId.Append(")");
+            EncodeTypeInfoToBuilder(strMethodId, methodInfo.GetGenericArguments());
+
+            var parameterTypes = methodInfo.GetParameters().Select(p => p.ParameterType).ToArray();
+            EncodeTypeInfoToBuilder(strMethodId, parameterTypes);
+
             return Utils.CalculateIdHash(strMethodId.ToString());
         }
 
@@ -309,32 +298,16 @@ namespace Orleans.CodeGeneration
                 var xString = new StringBuilder(x.Name);
                 var yString = new StringBuilder(y.Name);
 
-                ParameterInfo[] parms = x.GetParameters();
-                foreach (ParameterInfo info in parms)
-                {
-                    var typeInfo = info.ParameterType.GetTypeInfo();
-                    xString.Append(typeInfo.Name);
-                    if (typeInfo.IsGenericType)
-                    {
-                        Type[] args = info.ParameterType.GetGenericArguments();
-                        foreach (Type arg in args)
-                            xString.Append(arg.Name);
-                    }
-                }
+                EncodeTypeInfoToBuilder(xString, x.GetGenericArguments());
+                EncodeTypeInfoToBuilder(yString, y.GetGenericArguments());
 
-                parms = y.GetParameters();
-                foreach (ParameterInfo info in parms)
-                {
-                    yString.Append(info.ParameterType.Name);
-                    var typeInfo = info.ParameterType.GetTypeInfo();
-                    if (typeInfo.IsGenericType)
-                    {
-                        Type[] args = info.ParameterType.GetGenericArguments();
-                        foreach (Type arg in args)
-                            yString.Append(arg.Name);
-                    }
-                }
-                return String.CompareOrdinal(xString.ToString(), yString.ToString()) == 0;
+                var parameterTypes = x.GetParameters().Select(p => p.ParameterType).ToArray();
+                EncodeTypeInfoToBuilder(xString, parameterTypes);
+
+                parameterTypes = y.GetParameters().Select(p => p.ParameterType).ToArray();
+                EncodeTypeInfoToBuilder(yString, parameterTypes);
+
+                return string.CompareOrdinal(xString.ToString(), yString.ToString()) == 0;
             }
 
             public int GetHashCode(MethodInfo obj)
@@ -343,6 +316,21 @@ namespace Orleans.CodeGeneration
             }
 
             #endregion
+        }
+
+        private static void EncodeTypeInfoToBuilder(StringBuilder builder, Type[] types)
+        {
+            foreach (var type in types)
+            {
+                var typeInfo = type.GetTypeInfo(); // Josh asks why are we querying typeInfo instead of type?
+                builder.Append(typeInfo.Name).Append(' ');
+                if (typeInfo.IsGenericType)
+                {
+                    Type[] args = type.GetGenericArguments();
+                    foreach (Type arg in args)
+                        builder.Append(arg.Name).Append(' ');
+                }
+            }
         }
 
         /// <summary>
