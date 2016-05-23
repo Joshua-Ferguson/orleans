@@ -170,6 +170,22 @@ namespace Orleans.CodeGenerator
                                     .AddExpressions(parameters.Select(GetParameterForInvocation).ToArray()));
                 }
 
+                ExpressionSyntax genericTypeArgs = null;
+                if (method.IsGenericMethod)
+                {
+                    var genericArguments = method.GetGenericArguments();
+
+                    if (genericArguments.Length > 0)
+                    {
+                        genericTypeArgs =
+                            SF.ArrayCreationExpression(typeof(TypeInfo).GetArrayTypeSyntax())
+                                .WithInitializer(
+                                    SF.InitializerExpression(SyntaxKind.ArrayInitializerExpression)
+                                        .AddExpressions(genericArguments.Select(q => SF.InvocationExpression(SF.TypeOfExpression(q.GetTypeSyntax()).Member((Type _) => _.GetTypeInfo()))).ToArray()));
+                    }
+
+                }
+
                 var options = GetInvokeOptions(method);
 
                 // Construct the invocation call.
@@ -178,6 +194,11 @@ namespace Orleans.CodeGenerator
                     var invocation = SF.InvocationExpression(baseReference.Member("InvokeOneWayMethod"))
                         .AddArgumentListArguments(methodIdArgument)
                         .AddArgumentListArguments(SF.Argument(args));
+
+                    if (genericTypeArgs != null)
+                    {
+                        invocation = invocation.AddArgumentListArguments(SF.Argument(genericTypeArgs));
+                    }
 
                     if (options != null)
                     {
@@ -195,6 +216,11 @@ namespace Orleans.CodeGenerator
                         SF.InvocationExpression(baseReference.Member("InvokeMethodAsync", returnType))
                             .AddArgumentListArguments(methodIdArgument)
                             .AddArgumentListArguments(SF.Argument(args));
+
+                    if (genericTypeArgs != null)
+                    {
+                        invocation = invocation.AddArgumentListArguments(SF.Argument(genericTypeArgs));
+                    }
 
                     if (options != null)
                     {

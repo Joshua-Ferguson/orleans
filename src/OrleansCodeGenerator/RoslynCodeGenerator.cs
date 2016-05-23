@@ -402,7 +402,7 @@ namespace Orleans.CodeGenerator
                 members.Add(
                     SF.NamespaceDeclaration(SF.ParseName(group.Key))
                         .AddUsings(
-                            TypeUtils.GetNamespaces(typeof(TaskUtility), typeof(GrainExtensions))
+                            TypeUtils.GetNamespaces(typeof(TaskUtility), typeof(GrainExtensions), typeof(GenericInvoker), typeof(TypeInfo))
                                 .Select(_ => SF.UsingDirective(SF.ParseName(_)))
                                 .ToArray())
                         .AddMembers(namespaceMembers.ToArray()));
