@@ -398,7 +398,7 @@ namespace Orleans.CodeGenerator
                 members.Add(
                     SF.NamespaceDeclaration(SF.ParseName(group.Key))
                         .AddUsings(
-                            TypeUtils.GetNamespaces(typeof(TaskUtility), typeof(GrainExtensions), typeof(IntrospectionExtensions))
+                            TypeUtils.GetNamespaces(typeof(TaskUtility), typeof(GrainExtensions), typeof(IntrospectionExtensions), typeof(GenericInvoker))
                                 .Select(_ => SF.UsingDirective(SF.ParseName(_)))
                                 .ToArray())
                         .AddMembers(namespaceMembers.ToArray()));

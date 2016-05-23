@@ -7,8 +7,7 @@ namespace Orleans.CodeGenerator
     using System.Linq.Expressions;
     using System.Reflection;
     using System.Threading.Tasks;
-
-    using Microsoft.CodeAnalysis;
+    
     using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -197,13 +196,22 @@ namespace Orleans.CodeGenerator
                                 .WithInitializer(SF.EqualsValueClause(requestArgument.Member((InvokeMethodRequest _) => _.Arguments)))));
             var argumentsVariable = SF.IdentifierName("arguments");
 
+            var genericTypeParametersDeclaration =
+                SF.LocalDeclarationStatement(
+                    SF.VariableDeclaration(typeof(System.Reflection.TypeInfo[]).GetTypeSyntax())
+                        .AddVariables(
+                            SF.VariableDeclarator("genericTypeParameters")
+                                .WithInitializer(SF.EqualsValueClause(requestArgument.Member((InvokeMethodRequest _) => _.GenericTypeParameters)))));
+            var genericTypeParametersVariable = SF.IdentifierName("genericTypeParameters");
+
+
             var methodDeclaration = invokeMethod.GetDeclarationSyntax()
-                .AddBodyStatements(interfaceIdDeclaration, methodIdDeclaration, argumentsDeclaration);
+                .AddBodyStatements(interfaceIdDeclaration, methodIdDeclaration, argumentsDeclaration, genericTypeParametersDeclaration);
 
             var interfaceCases = CodeGeneratorCommon.GenerateGrainInterfaceAndMethodSwitch(
                 grainType,
                 methodIdVariable,
-                methodType => GenerateInvokeForMethod(grainType, grainArgument, methodType, argumentsVariable));
+                methodType => GenerateInvokeForMethod(grainType, grainArgument, methodType, argumentsVariable, genericTypeParametersVariable));
 
             // Generate the default case, which will throw a NotImplementedException.
             var errorMessage = SF.BinaryExpression(
@@ -263,15 +271,21 @@ namespace Orleans.CodeGenerator
         /// <param name="arguments">
         /// The arguments expression.
         /// </param>
+        /// <param name="genericTypeParameters">
+        /// The generic type parameters.
+        /// </param>
         /// <returns>
         /// Syntax to invoke a method on a grain.
         /// </returns>
         private static StatementSyntax[] GenerateInvokeForMethod(
             Type grainType,
-            IdentifierNameSyntax grain,
+            ExpressionSyntax grain,
             MethodInfo method,
-            ExpressionSyntax arguments)
+            ExpressionSyntax arguments,
+            ExpressionSyntax genericTypeParameters)
         {
+            if (method.IsGenericMethod) return GenerateRuntimeInvokeForMethod(grainType, grain, method, arguments, genericTypeParameters);
+
             var castGrain = SF.ParenthesizedExpression(SF.CastExpression(grainType.GetTypeSyntax(), grain));
 
             // Construct expressions to retrieve each of the method's parameters.
@@ -307,6 +321,34 @@ namespace Orleans.CodeGenerator
             return new StatementSyntax[]
             {
                 SF.ReturnStatement(SF.InvocationExpression(grainMethodCall.Member((Task _) => _.Box())))
+            };
+        }
+
+        private static StatementSyntax[] GenerateRuntimeInvokeForMethod(
+            Type grainType,
+            ExpressionSyntax grain,
+            MethodInfo method,
+            ExpressionSyntax arguments,
+            ExpressionSyntax genericTypeParameters)
+        {
+            var invokeMethodAtRuntimeExpression =
+                SF.InvocationExpression(
+                    SF.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SF.IdentifierName(nameof(GenericInvoker)),
+                        SF.IdentifierName(nameof(GenericInvoker.Invoke))))
+                    .AddArgumentListArguments(
+                        SF.Argument(
+                            SF.InvocationExpression(
+                                SF.TypeOfExpression(grainType.GetTypeSyntax()).Member((Type _) => _.GetTypeInfo()))),
+                        SF.Argument(grain),
+                        SF.Argument(SF.LiteralExpression(SyntaxKind.StringLiteralExpression, SF.Literal(method.Name))),
+                        SF.Argument(genericTypeParameters),
+                        SF.Argument(arguments));
+
+            return new StatementSyntax[]
+            {
+                SF.ReturnStatement(SF.InvocationExpression(invokeMethodAtRuntimeExpression.Member((Task _) => _.Box())))
             };
         }
     }

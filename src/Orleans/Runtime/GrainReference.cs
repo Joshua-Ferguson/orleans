@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Text;
@@ -284,9 +286,9 @@ namespace Orleans.Runtime
         /// <summary>
         /// Called from generated code.
         /// </summary>
-        protected void InvokeOneWayMethod(int methodId, object[] arguments, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
+        protected void InvokeOneWayMethod(int methodId, object[] arguments, TypeInfo[] genericTypeParameters = null, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
         {
-            Task<object> resultTask = InvokeMethodAsync<object>(methodId, arguments, options | InvokeMethodOptions.OneWay);
+            Task<object> resultTask = InvokeMethodAsync<object>(methodId, arguments, genericTypeParameters, options | InvokeMethodOptions.OneWay);
             if (!resultTask.IsCompleted && resultTask.Result != null)
             {
                 throw new OrleansException("Unexpected return value: one way InvokeMethod is expected to return null.");
@@ -296,7 +298,7 @@ namespace Orleans.Runtime
         /// <summary>
         /// Called from generated code.
         /// </summary>
-        protected Task<T> InvokeMethodAsync<T>(int methodId, object[] arguments, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
+        protected Task<T> InvokeMethodAsync<T>(int methodId, object[] arguments, TypeInfo[] genericTypeParameters = null, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
         {
             object[] argsDeepCopy = null;
             if (arguments != null)
@@ -306,7 +308,7 @@ namespace Orleans.Runtime
                 argsDeepCopy = (object[])SerializationManager.DeepCopy(arguments);
             }
             
-            var request = new InvokeMethodRequest(this.InterfaceId, methodId, argsDeepCopy);
+            var request = new InvokeMethodRequest(this.InterfaceId, methodId, argsDeepCopy, genericTypeParameters);
 
             if (IsUnordered)
                 options |= InvokeMethodOptions.Unordered;
@@ -331,7 +333,6 @@ namespace Orleans.Runtime
         #endregion
 
         #region Private members
-
         private Task<object> InvokeMethod_Impl(InvokeMethodRequest request, string debugContext, InvokeMethodOptions options)
         {
             if (debugContext == null && USE_DEBUG_CONTEXT)

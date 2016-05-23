@@ -106,6 +106,7 @@
     <Compile Include="Providers\DefaultServiceProvider.cs" />
     <Compile Include="GrainDirectory\MultiClusterStatus.cs" />
     <Compile Include="Runtime\RingRange.cs" />
+    <Compile Include="Runtime\GenericInvoker.cs" />
     <Compile Include="Serialization\IExternalSerializer.cs" />
     <Compile Include="Configuration\LimitNames.cs" />
     <Compile Include="Configuration\LimitValue.cs" />
