@@ -129,7 +129,7 @@ namespace Orleans.CodeGeneration
 
             EncodeTypeInfoToBuilder(strMethodId, methodInfo.GetGenericArguments());
 
-            var parameterTypes = methodInfo.GetParameters().Select(p => p.ParameterType).ToArray();
+            var parameterTypes = methodInfo.GetParameters().Select(p => p.ParameterType);
             EncodeTypeInfoToBuilder(strMethodId, parameterTypes);
 
             return Utils.CalculateIdHash(strMethodId.ToString());
@@ -301,10 +301,10 @@ namespace Orleans.CodeGeneration
                 EncodeTypeInfoToBuilder(xString, x.GetGenericArguments());
                 EncodeTypeInfoToBuilder(yString, y.GetGenericArguments());
 
-                var parameterTypes = x.GetParameters().Select(p => p.ParameterType).ToArray();
+                var parameterTypes = x.GetParameters().Select(p => p.ParameterType);
                 EncodeTypeInfoToBuilder(xString, parameterTypes);
 
-                parameterTypes = y.GetParameters().Select(p => p.ParameterType).ToArray();
+                parameterTypes = y.GetParameters().Select(p => p.ParameterType);
                 EncodeTypeInfoToBuilder(yString, parameterTypes);
 
                 return string.CompareOrdinal(xString.ToString(), yString.ToString()) == 0;
@@ -318,11 +318,11 @@ namespace Orleans.CodeGeneration
             #endregion
         }
 
-        private static void EncodeTypeInfoToBuilder(StringBuilder builder, Type[] types)
+        private static void EncodeTypeInfoToBuilder(StringBuilder builder, IEnumerable<Type> types)
         {
             foreach (var type in types)
             {
-                var typeInfo = type.GetTypeInfo(); // Josh asks why are we querying typeInfo instead of type?
+                var typeInfo = type.GetTypeInfo();
                 builder.Append(typeInfo.Name).Append(' ');
                 if (typeInfo.IsGenericType)
                 {

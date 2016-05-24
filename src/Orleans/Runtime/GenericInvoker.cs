@@ -22,13 +22,13 @@ namespace Orleans.Runtime
 
             for (int i = 0; i < a.Length; i++)
             {
-                var aType = a[i].ParameterType;
+                var aType = a[i].ParameterType.GetTypeInfo();
                 if (!aType.IsGenericParameter && !b[i].IsGenericParameter)
                 {
-                    if (aType.IsGenericType && b[i].IsGenericType) // TODO: is this redundant?
+                    if (aType.IsGenericType && b[i].IsGenericType)
                     {
-                        var aGTD = aType.GetGenericTypeDefinition();
-                        var bGTD = b[i].GetGenericTypeDefinition();
+                        var aGTD = aType.GetGenericTypeDefinition().GetTypeInfo();
+                        var bGTD = b[i].GetGenericTypeDefinition().GetTypeInfo();
 
                         if (aGTD != bGTD) return false;
                     }
@@ -43,7 +43,7 @@ namespace Orleans.Runtime
         }
 
         private const char KeyDelimiter = '!';
-        private static string GetInvokeKey(Type grainInterface, string methodName, TypeInfo[] genericTypeParameters, TypeInfo[] argumentTypeParameters) // TODO: Can this be better?
+        private static string GetInvokeKey(Type grainInterface, string methodName, TypeInfo[] genericTypeParameters, TypeInfo[] argumentTypeParameters)
         {
             var sb = new StringBuilder();
             sb.Append(grainInterface.Namespace).Append('.').Append(grainInterface.Name).Append(KeyDelimiter)
@@ -63,14 +63,22 @@ namespace Orleans.Runtime
         }
 
         // This allows interfaces that specify more interfaces to still be represented
-        private static List<MethodInfo> GetMethods(TypeInfo t)
+        private static IEnumerable<MethodInfo> GetMethods(TypeInfo t)
         {
-            var methods = new List<MethodInfo>();
-            methods.AddRange(t.GetMethods());
+            foreach (var method in t.GetMethods()) yield return method;
+            foreach (var i in t.GetInterfaces()) foreach (var method in GetMethods(i.GetTypeInfo())) yield return method;
+        }
 
-            foreach (var i in t.GetInterfaces()) methods.AddRange(GetMethods(i.GetTypeInfo()));
-
-            return methods;
+        private static IEnumerable<MethodInfo> GetInvokables(TypeInfo grainInterface, string methodName, TypeInfo[] genericTypeParameters, TypeInfo[] argumentTypeParameters)
+        {
+            foreach (var method in GetMethods(grainInterface))
+            {
+                if (method.Name == methodName && method.GetGenericArguments().Length == genericTypeParameters.Length)
+                {
+                    var constructedMethod = method.MakeGenericMethod(genericTypeParameters);
+                    if (CompareParameters(constructedMethod.GetParameters(), argumentTypeParameters)) yield return constructedMethod;
+                }
+            }
         }
 
         public static dynamic Invoke(TypeInfo grainInterface, IAddressable grain, string methodName, TypeInfo[] genericTypeParameters, object[] arguments)
@@ -87,16 +95,11 @@ namespace Orleans.Runtime
 
                 if (!success)
                 {
-                    var invokables = GetMethods(grainInterface)
-                        .Where(i => i.Name == methodName)
-                        .Where(i => i.GetGenericArguments().Length == genericTypeParameters.Length)
-                        .Where(i => CompareParameters(i.MakeGenericMethod(genericTypeParameters).GetParameters(), argumentTypeParameters));
+                    // This prevents us from knowing if we find too many invokes
+                    var invokables = GetInvokables(grainInterface, methodName, genericTypeParameters, argumentTypeParameters);
+                    invokable = invokables.FirstOrDefault();
 
-                    if (invokables.Count() != 1) throw new AmbiguousMatchException($"{invokables.Count()} matches found. genericTypeParameters.Length = {genericTypeParameters.Length}; invokeKey = {invokeKey}; ");
-
-                    invokable = invokables
-                        .First()
-                        .MakeGenericMethod(genericTypeParameters);
+                    if (invokable == null) throw new AmbiguousMatchException($"0 matches found. genericTypeParameters. Length = {genericTypeParameters.Length}; invokeKey = {invokeKey}; ");
 
                     invocations.TryAdd(invokeKey, invokable);
                 }

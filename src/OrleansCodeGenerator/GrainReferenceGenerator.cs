@@ -191,20 +191,8 @@ namespace Orleans.CodeGenerator
                 // Construct the invocation call.
                 if (method.ReturnType == typeof(void))
                 {
-                    var invocation = SF.InvocationExpression(baseReference.Member("InvokeOneWayMethod"))
-                        .AddArgumentListArguments(methodIdArgument)
-                        .AddArgumentListArguments(SF.Argument(args));
-
-                    if (genericTypeArgs != null)
-                    {
-                        invocation = invocation.AddArgumentListArguments(SF.Argument(genericTypeArgs));
-                    }
-
-                    if (options != null)
-                    {
-                        invocation = invocation.AddArgumentListArguments(options);
-                    }
-
+                    var invocation = SF.InvocationExpression(baseReference.Member("InvokeOneWayMethod"));
+                    invocation = GenerateMethodInvocation(invocation, methodIdArgument, args, genericTypeArgs, options);
                     body.Add(SF.ExpressionStatement(invocation));
                 }
                 else
@@ -212,21 +200,9 @@ namespace Orleans.CodeGenerator
                     var returnType = method.ReturnType == typeof(Task)
                                          ? typeof(object)
                                          : method.ReturnType.GenericTypeArguments[0];
-                    var invocation =
-                        SF.InvocationExpression(baseReference.Member("InvokeMethodAsync", returnType))
-                            .AddArgumentListArguments(methodIdArgument)
-                            .AddArgumentListArguments(SF.Argument(args));
 
-                    if (genericTypeArgs != null)
-                    {
-                        invocation = invocation.AddArgumentListArguments(SF.Argument(genericTypeArgs));
-                    }
-
-                    if (options != null)
-                    {
-                        invocation = invocation.AddArgumentListArguments(options);
-                    }
-
+                    var invocation = SF.InvocationExpression(baseReference.Member("InvokeMethodAsync", returnType));
+                    invocation = GenerateMethodInvocation(invocation, methodIdArgument, args, genericTypeArgs, options);
                     body.Add(SF.ReturnStatement(invocation));
                 }
 
@@ -234,6 +210,26 @@ namespace Orleans.CodeGenerator
             }
 
             return members.ToArray();
+        }
+
+        private static InvocationExpressionSyntax GenerateMethodInvocation(InvocationExpressionSyntax invocation, ArgumentSyntax methodIdArgument, ExpressionSyntax args, ExpressionSyntax genericTypeArgs, ArgumentSyntax options)
+        {
+            invocation = invocation
+                    .AddArgumentListArguments(methodIdArgument)
+                    .AddArgumentListArguments(SF.Argument(args));
+
+            if (genericTypeArgs != null)
+            {
+                invocation = invocation.AddArgumentListArguments(SF.Argument(genericTypeArgs));
+            }
+
+            if (options != null)
+            {
+                if (genericTypeArgs == null) invocation = invocation.AddArgumentListArguments(SF.Argument(SF.LiteralExpression(SyntaxKind.NullLiteralExpression)));
+                invocation = invocation.AddArgumentListArguments(options);
+            }
+
+            return invocation;
         }
 
         /// <summary>

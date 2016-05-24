@@ -16,7 +16,7 @@ namespace Orleans.CodeGeneration
         /// <summary> Arguments for this Invoke request. </summary>
         public object[] Arguments { get; private set; }
         /// <summary> Generic Type Parameters for this Invoke request. </summary>
-        public TypeInfo[] GenericTypeParameters { get; private set; } // TODO: is this parameters or arguments? I forgot.
+        public TypeInfo[] GenericTypeParameters { get; private set; }
 
         internal InvokeMethodRequest(int interfaceId, int methodId, object[] arguments)
         {

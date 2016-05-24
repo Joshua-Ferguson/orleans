@@ -1524,17 +1524,7 @@ namespace Orleans.Serialization
                 }
             }
 
-            TypeInfo[] genericTypeParameters = null;
-            if (request.GenericTypeParameters != null)
-            {
-                genericTypeParameters = new TypeInfo[request.GenericTypeParameters.Length];
-                for (var i = 0; i < request.GenericTypeParameters.Length; i++)
-                {
-                    genericTypeParameters[i] = SerializationManager.DeepCopyInner(request.GenericTypeParameters[i]) as TypeInfo;
-                }
-            }
-
-            var result = new InvokeMethodRequest(request.InterfaceId, request.MethodId, args, genericTypeParameters);
+            var result = new InvokeMethodRequest(request.InterfaceId, request.MethodId, args, request.GenericTypeParameters);
             SerializationContext.Current.RecordObject(original, result);
             return result;
         }

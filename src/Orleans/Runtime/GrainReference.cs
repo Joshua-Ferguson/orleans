@@ -285,9 +285,9 @@ namespace Orleans.Runtime
         /// <summary>
         /// Called from generated code.
         /// </summary>
-        protected void InvokeOneWayMethod(int methodId, object[] arguments, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
+        protected void InvokeOneWayMethod(int methodId, object[] arguments, TypeInfo[] genericTypeParameters = null, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
         {
-            Task<object> resultTask = InvokeMethodAsync<object>(methodId, arguments, options | InvokeMethodOptions.OneWay);
+            Task<object> resultTask = InvokeMethodAsync<object>(methodId, arguments, genericTypeParameters, options | InvokeMethodOptions.OneWay);
             if (!resultTask.IsCompleted && resultTask.Result != null)
             {
                 throw new OrleansException("Unexpected return value: one way InvokeMethod is expected to return null.");
@@ -297,7 +297,7 @@ namespace Orleans.Runtime
         /// <summary>
         /// Called from generated code.
         /// </summary>
-        protected async Task<T> InvokeMethodAsync<T>(int methodId, object[] arguments, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null, TypeInfo[] genericTypeParameters = null)
+        protected async Task<T> InvokeMethodAsync<T>(int methodId, object[] arguments, TypeInfo[] genericTypeParameters = null, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
         {
             object[] argsDeepCopy = null;
             if (arguments != null)
@@ -322,58 +322,9 @@ namespace Orleans.Runtime
             return (T) await resultTask;
         }
 
-        /// <summary>
-        /// Called from generated code. Generic type parameter Invoke.
-        /// </summary>
-        protected async Task<T> InvokeMethodAsync<T>(int methodId, object[] arguments, TypeInfo[] genericTypeParameters, InvokeMethodOptions options = InvokeMethodOptions.None, SiloAddress silo = null)
-        {
-            var result = await InvokeMethodAsync<object>(methodId, arguments, options, silo, genericTypeParameters);
-            if (result == null) return (T)result;
-
-            var tType = typeof(T);
-            var rType = result.GetType();
-
-            // Just because an invoke supports a generic call, doesn't mean it was used with a generic object
-            // And, any generic that is wrapped in another container is safe, we do not need to modify it.
-            if (tType.IsGenericType && rType.GenericTypeArguments.Where(g => g == typeof(object)).Count() > 0)
-            {
-                return (T)CastGeneric(result, genericTypeParameters);
-            }
-            else
-            {
-                return (T)result;
-            }
-        }
-
         #endregion
 
         #region Private members
-        private static object CastGeneric(object input, TypeInfo[] genericTypeParameters)
-        {
-            try
-            {
-                var inputType = input.GetType();
-                var cleanType = inputType.GetGenericTypeDefinition();
-                var outputType = cleanType.MakeGenericType(genericTypeParameters);
-                object output = Activator.CreateInstance(outputType);
-
-                var inFields = inputType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
-                var outFields = outputType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
-
-                for (int i = 0; i < inFields.Length; i++)
-                {
-                    var value = inFields[i].GetValue(input);
-                    outFields[i].SetValue(output, value);
-                }
-
-                return output;
-            }
-            catch (Exception exception)
-            {
-                throw new OrleansException($"{nameof(CastGeneric)}: inputType = {input?.GetType()}; genericTypeParameters.Length = {genericTypeParameters.Length}; genericTypeParameters = {string.Join(", ", genericTypeParameters.ToList())};", exception);
-            }
-        }
-
         private Task<object> InvokeMethod_Impl(InvokeMethodRequest request, string debugContext, InvokeMethodOptions options)
         {
             if (debugContext == null && USE_DEBUG_CONTEXT)
