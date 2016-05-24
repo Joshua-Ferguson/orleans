@@ -192,7 +192,7 @@ namespace Orleans.CodeGenerator
                 if (method.ReturnType == typeof(void))
                 {
                     var invocation = SF.InvocationExpression(baseReference.Member("InvokeOneWayMethod"));
-                    invocation = GenerateMethodInvocation(invocation, methodIdArgument, args, genericTypeArgs, options);
+                    invocation = GenerateMethodInvocationArguments(invocation, methodIdArgument, args, genericTypeArgs, options);
                     body.Add(SF.ExpressionStatement(invocation));
                 }
                 else
@@ -202,7 +202,7 @@ namespace Orleans.CodeGenerator
                                          : method.ReturnType.GenericTypeArguments[0];
 
                     var invocation = SF.InvocationExpression(baseReference.Member("InvokeMethodAsync", returnType));
-                    invocation = GenerateMethodInvocation(invocation, methodIdArgument, args, genericTypeArgs, options);
+                    invocation = GenerateMethodInvocationArguments(invocation, methodIdArgument, args, genericTypeArgs, options);
                     body.Add(SF.ReturnStatement(invocation));
                 }
 
@@ -212,7 +212,7 @@ namespace Orleans.CodeGenerator
             return members.ToArray();
         }
 
-        private static InvocationExpressionSyntax GenerateMethodInvocation(InvocationExpressionSyntax invocation, ArgumentSyntax methodIdArgument, ExpressionSyntax args, ExpressionSyntax genericTypeArgs, ArgumentSyntax options)
+        private static InvocationExpressionSyntax GenerateMethodInvocationArguments(InvocationExpressionSyntax invocation, ArgumentSyntax methodIdArgument, ExpressionSyntax args, ExpressionSyntax genericTypeArgs, ArgumentSyntax options)
         {
             invocation = invocation
                     .AddArgumentListArguments(methodIdArgument)
