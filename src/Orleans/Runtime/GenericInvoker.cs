@@ -30,11 +30,11 @@ namespace Orleans.Runtime
                         var aGTD = aType.GetGenericTypeDefinition().GetTypeInfo();
                         var bGTD = b[i].GetGenericTypeDefinition().GetTypeInfo();
 
-                        if (aGTD != bGTD) return false;
+                        if (!aGTD.IsAssignableFrom(bGTD)) return false;
                     }
                     else
                     {
-                        if (aType != b[i]) return false;
+                        if (!aType.IsAssignableFrom(b[i])) return false;
                     }
                 }
             }

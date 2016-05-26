@@ -22,6 +22,15 @@ namespace UnitTests.General
     public class GenericMethodGrainTests : HostedTestClusterEnsureDefaultStarted
     {
         [Fact, TestCategory("Functional"), TestCategory("Generics")]
+        public async Task GenericArgumentTypeResolvesCorrectly()
+        {
+            var grain = GrainClient.GrainFactory.GetGrain<IGenericMethodGrain>(0);
+            Assert.Equal(0, await grain.GenericArgument<object>(3.14159));
+            Assert.Equal(0, await grain.GenericArgument<object>("hello orleans"));
+        }
+
+
+        [Fact, TestCategory("Functional"), TestCategory("Generics")]
         public async Task GenericArgumentTypeWorks()
         {
             var grain = GrainClient.GrainFactory.GetGrain<IGenericMethodGrain>(0);
